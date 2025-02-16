@@ -11,8 +11,12 @@
 </head>
 <body class="bg-gray-100">
     <div id="app" class="container mx-auto px-4 py-8">
-        <header class="mb-8">
+        <header class="mb-8 flex justify-between items-center">
             <h1 class="text-3xl font-bold text-gray-800">Alpha DCA Configuration</h1>
+            <button @click="shutdownServer" 
+                    class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                <span>Shutdown Server</span>
+            </button>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -184,6 +188,11 @@
                 getTotalAllocation() {
                     return Object.values(this.config.allocation)
                         .reduce((sum, category) => sum + Number(category.total_percentage), 0);
+                },
+                getStakingFrequency() {
+                    const interval = this.config.staking.interval;
+                    if (!interval || interval <= 0) return 0;
+                    return (24 * 3600 / interval).toFixed(1);
                 },
                 async updateBasicSettings() {
                     try {
@@ -396,10 +405,31 @@
                     
                     this.updateAllCharts();
                 },
-                getStakingFrequency() {
-                    const interval = this.config.staking.interval;
-                    if (!interval || interval <= 0) return 0;
-                    return (24 * 3600 / interval).toFixed(1);
+                async shutdownServer() {
+                    if (!confirm('Are you sure you want to shutdown the configuration server?')) {
+                        return;
+                    }
+                    try {
+                        const response = await fetch('/shutdown', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                            }
+                        });
+                        const data = await response.json();
+                        if (data.status === 'success') {
+                            alert('Server is shutting down. You can close this window.');
+                            setTimeout(() => {
+                                window.close();
+                            }, 2000);
+                        } else {
+                            alert('Failed to shutdown server: ' + data.message);
+                        }
+                    } catch (error) {
+                        console.error('Error shutting down server:', error);
+                        alert('Error shutting down server. Check console for details.');
+                    }
                 }
             },
             watch: {

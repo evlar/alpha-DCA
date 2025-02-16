@@ -4,6 +4,8 @@ import yaml
 import os
 from typing import Dict, Any, List
 from alpha_DCA import ConfigValidator
+import sys
+import threading
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.urandom(24)
@@ -130,5 +132,19 @@ def validate_config():
             "errors": [str(e)]
         })
 
+@app.route('/shutdown', methods=['POST'])
+def shutdown():
+    """Shutdown the server."""
+    try:
+        # Schedule the shutdown after responding to the client
+        def shutdown_server():
+            # Give the response time to be sent
+            threading.Timer(1.0, lambda: os._exit(0)).start()
+        
+        threading.Thread(target=shutdown_server).start()
+        return jsonify({"status": "success", "message": "Server shutting down..."})
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000) 
+    app.run(debug=False, port=5000)  # Changed debug to False 
