@@ -2,7 +2,7 @@
 
 Automate your TAO staking across multiple Bittensor subnets with a user-friendly web interface.
 
-## 🚀 Quick Start
+## 🚀 Quick Start (Web UI)
 
 ```bash
 # Clone and setup
@@ -18,33 +18,31 @@ python3 web_config.py
 # Visit http://localhost:5000 in your browser to configure your staking strategy
 ```
 
-## 🔄 Running in Background
+## 💻 CLI Setup (No GUI)
 
-To run the DCA script in the background with the correct virtual environment:
+If you prefer command-line setup:
 
+1. Copy the example config:
 ```bash
-# Install PM2 if you haven't already
-npm install -g pm2
-
-# Get the absolute path to your virtual environment's Python
-VENV_PYTHON=$(which python3)
-
-# Start DCA script with PM2 using the virtual environment's Python
-pm2 start alpha_DCA.py --name "alpha-dca" --interpreter $VENV_PYTHON
-
-# Verify it's running with the correct interpreter
-pm2 show alpha-dca
-
-# Monitor logs
-pm2 logs alpha-dca
-
-# Other useful commands
-pm2 stop alpha-dca
-pm2 restart alpha-dca
-pm2 status
+cp example.config.yaml config.yaml
 ```
 
-Make sure to run these commands while your virtual environment is activated.
+2. Edit the config file with your preferred editor:
+```bash
+nano config.yaml  # or vim config.yaml
+```
+
+3. Run the DCA script:
+```bash
+python3 alpha_DCA.py
+```
+
+To run in background with PM2:
+```bash
+pm2 start alpha_DCA.py --name "alpha-dca" --interpreter $(which python3)
+pm2 logs alpha-dca  # Monitor logs
+pm2 stop alpha-dca  # Stop the process
+```
 
 ## 📈 Allocation Strategy
 
@@ -53,17 +51,16 @@ You can create multiple allocation categories (e.g., "Established", "New-comers"
 ```yaml
 allocation:
   established:  # 60% of total DCA
-    description: Proven subnets
-    total_percentage: 60
+    description: Proven subnets with consistent returns
+    total_percentage: 90
     subnets:
-      1: 70  # 70% of the 60%
-      2: 30  # 30% of the 60%
+      '11': 60  # 60% of the 90%
+      '64': 40  # 40% of the 90%
   shit_coiners:  # 40% of total DCA
-    description: High risk, high reward subnets
-    total_percentage: 40
+    description: YOLO plays
+    total_percentage: 10
     subnets:
-      11: 50  # 50% of the 40%
-      64: 50  # 50% of the 40%
+      '333': 100  # 100% of the 10%
 ```
 
 ## 📝 Configuration Example

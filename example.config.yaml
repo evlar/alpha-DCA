@@ -1,0 +1,27 @@
+# Network to use (finney or local)
+network: finney
+
+# Your wallet configuration
+wallet:
+  name: your_wallet_name  # Name of your Bittensor wallet
+
+# Staking settings
+staking:
+  delegate_hotkey: 5HK5tp6t2S59DywmHRWPBVJeJ86T61KjurYqeooqj8sREpeN  # Your delegate's SS58 address
+  amount_per_cycle: 0.01  # Amount of TAO to stake per cycle
+  interval: 10800  # Interval in seconds (e.g., 10800 = 3 hours)
+
+# Subnet allocation strategy
+allocation:
+  established:  # Category name can be anything you want
+    description: Safe and steady returns
+    total_percentage: 90  # Percentage of amount_per_cycle
+    subnets:
+      '11': 60  # 60% of the 90%
+      '64': 40  # 40% of the 90%
+  shit_coiners:
+    description: YOLO plays
+    total_percentage: 10  # Percentage of amount_per_cycle
+    subnets:
+      '333': 70  # 70% of the 10% 
+      '30': 30  # 30% of the 10% 
