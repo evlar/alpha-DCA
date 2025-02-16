@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Bittensor Staking Configuration</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div id="app" class="container mx-auto px-4 py-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-800">Alpha DCA Configuration</h1>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Basic Settings -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">Basic Settings</h2>
+                {% raw %}
+                <form @submit.prevent="updateBasicSettings" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Network</label>
+                        <select v-model="config.network" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                            <option value="finney">Finney</option>
+                            <option value="local">Local</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Wallet Name</label>
+                        <input type="text" v-model="config.wallet.name" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Save Basic Settings
+                    </button>
+                </form>
+                {% endraw %}
+            </div>
+
+            <!-- Staking Settings -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">Staking Settings</h2>
+                {% raw %}
+                <form @submit.prevent="updateStakingSettings" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Delegate Hotkey</label>
+                        <input type="text" v-model="config.staking.delegate_hotkey" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Amount Per Cycle (TAO)</label>
+                        <input type="number" step="0.000001" v-model="config.staking.amount_per_cycle" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700">Interval (hours)</label>
+                        <input type="number" 
+                               :value="config.staking.interval / 3600" 
+                               @input="e => config.staking.interval = Math.round(e.target.value * 3600)"
+                               step="0.1"
+                               min="0.1"
+                               class="mt-1 block w-full rounded-md border-gray-300 shadow-sm">
+                        <span class="text-sm text-gray-500 mt-1 block">
+                            ≈ {{ getStakingFrequency() }} times per day ({{ config.staking.interval }} seconds)
+                        </span>
+                    </div>
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Save Staking Settings
+                    </button>
+                </form>
+                {% endraw %}
+            </div>
+
+            <!-- Allocation Settings -->
+            <div class="bg-white rounded-lg shadow p-6 md:col-span-2">
+                <h2 class="text-xl font-semibold mb-4">Subnet Allocation</h2>
+                {% raw %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <div v-for="(category, name) in config.allocation" :key="name" class="mb-6">
+                            <div class="flex justify-between items-center mb-2">
+                                <h3 class="text-lg font-medium">{{ name }}</h3>
+                                <div class="flex gap-2">
+                                    <button @click="equalizeSubnets(category)" class="text-blue-500 hover:text-blue-600">Equalize Subnets</button>
+                                    <button @click="removeCategory(name)" class="text-red-500 hover:text-red-600">Remove</button>
+                                </div>
+                            </div>
+                            <div class="space-y-2">
+                                <input type="text" v-model="category.description" placeholder="Description" class="block w-full rounded-md border-gray-300 shadow-sm">
+                                <div class="flex gap-2 items-center">
+                                    <label class="text-sm font-medium text-gray-700">Category Total:</label>
+                                    <input type="number" v-model.number="category.total_percentage" @change="onCategoryTotalChange(category)" placeholder="Total %" class="w-24 rounded-md border-gray-300 shadow-sm">
+                                    <span class="text-sm text-gray-500">% of total allocation</span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="mt-2">
+                                        <label class="text-sm font-medium text-gray-700">Subnet Distribution (must total 100%)</label>
+                                        <div v-for="(percentage, subnet) in category.subnets" :key="subnet" class="flex gap-2 mt-1">
+                                            <input type="text" v-model="subnet" placeholder="Subnet" class="w-24 rounded-md border-gray-300 shadow-sm">
+                                            <input type="number" 
+                                                   v-model.number="category.subnets[subnet]" 
+                                                   @input="updateCategoryChart(name, category); updateChart()"
+                                                   placeholder="%" 
+                                                   class="w-24 rounded-md border-gray-300 shadow-sm">
+                                            <span class="text-sm text-gray-500">
+                                                ≈ {{ calculateTaoAmount(category.total_percentage, percentage) }} TAO
+                                            </span>
+                                            <button @click="removeSubnet(category, subnet)" class="text-red-500 hover:text-red-600">×</button>
+                                        </div>
+                                        <div class="mt-1">
+                                            <span class="text-sm" :class="getSubnetTotalClass(category)">
+                                                Total: {{ getSubnetTotal(category) }}%
+                                            </span>
+                                        </div>
+                                        <button @click="addSubnet(category)" class="text-blue-500 hover:text-blue-600 mt-2">+ Add Subnet</button>
+                                    </div>
+                                    <div class="flex justify-center items-start mt-2">
+                                        <canvas :id="'chart-' + name" width="150" height="150"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button @click="addCategory" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                            + Add Category
+                        </button>
+                    </div>
+                    <div>
+                        <canvas id="allocationChart"></canvas>
+                        <div class="mt-4 text-sm text-gray-600">
+                            Total Category Allocation: {{ getTotalAllocation() }}%
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4">
+                    <button @click="updateAllocation" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        Save Allocation
+                    </button>
+                </div>
+                {% endraw %}
+            </div>
+        </div>
+
+        <!-- Validation Status -->
+        {% raw %}
+        <div class="mt-8">
+            <div v-if="validationErrors.length" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+                <p v-for="error in validationErrors" :key="error" class="text-sm">{{ error }}</p>
+            </div>
+            <div v-else-if="validated" class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded">
+                Configuration is valid!
+            </div>
+        </div>
+        {% endraw %}
+    </div>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    config: {{ config|tojson }},
+                    validationErrors: [],
+                    validated: false,
+                    chart: null,
+                    categoryCharts: {}
+                }
+            },
+            methods: {
+                calculateTaoAmount(categoryPercentage, subnetPercentage) {
+                    const amount = this.config.staking.amount_per_cycle * (categoryPercentage / 100) * (subnetPercentage / 100);
+                    return amount.toFixed(6);
+                },
+                getSubnetTotal(category) {
+                    return Object.values(category.subnets).reduce((sum, val) => sum + Number(val), 0);
+                },
+                getSubnetTotalClass(category) {
+                    const total = this.getSubnetTotal(category);
+                    return {
+                        'text-green-600': total === 100,
+                        'text-red-600': total !== 100
+                    };
+                },
+                getTotalAllocation() {
+                    return Object.values(this.config.allocation)
+                        .reduce((sum, category) => sum + Number(category.total_percentage), 0);
+                },
+                async updateBasicSettings() {
+                    try {
+                        const response = await fetch('/api/config/basic', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                network: this.config.network,
+                                wallet_name: this.config.wallet.name
+                            })
+                        });
+                        const data = await response.json();
+                        if (data.status === 'error') {
+                            this.validationErrors = [data.message];
+                        } else {
+                            this.validateConfig();
+                        }
+                    } catch (error) {
+                        console.error('Error updating basic settings:', error);
+                    }
+                },
+                async updateStakingSettings() {
+                    try {
+                        const response = await fetch('/api/config/staking', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(this.config.staking)
+                        });
+                        const data = await response.json();
+                        if (data.status === 'error') {
+                            this.validationErrors = [data.message];
+                        } else {
+                            this.validateConfig();
+                        }
+                    } catch (error) {
+                        console.error('Error updating staking settings:', error);
+                    }
+                },
+                async updateAllocation() {
+                    try {
+                        const response = await fetch('/api/config/allocation', {
+                            method: 'POST',
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                            },
+                            body: JSON.stringify({
+                                allocation: this.config.allocation
+                            })
+                        });
+                        const data = await response.json();
+                        if (data.status === 'error') {
+                            this.validationErrors = [data.message];
+                        } else {
+                            this.validateConfig();
+                            this.updateAllCharts();
+                        }
+                    } catch (error) {
+                        console.error('Error updating allocation:', error);
+                    }
+                },
+                async validateConfig() {
+                    try {
+                        const response = await fetch('/api/validate');
+                        const data = await response.json();
+                        this.validationErrors = data.errors;
+                        this.validated = data.status === 'valid';
+                    } catch (error) {
+                        console.error('Error validating config:', error);
+                    }
+                },
+                updateCategoryChart(name, category) {
+                    const ctx = document.getElementById('chart-' + name);
+                    if (!ctx) return;
+
+                    // Destroy existing chart if it exists
+                    if (this.categoryCharts[name]) {
+                        this.categoryCharts[name].destroy();
+                    }
+
+                    const subnets = Object.entries(category.subnets).map(([id, value]) => ({
+                        id,
+                        value: Number(value) || 0
+                    }));
+
+                    const total = subnets.reduce((sum, { value }) => sum + value, 0);
+                    const unallocated = Math.max(0, 100 - total);
+                    
+                    const chartData = {
+                        labels: [...subnets.map(s => `Subnet ${s.id}`), unallocated > 0 ? 'Unallocated' : null].filter(Boolean),
+                        datasets: [{
+                            data: [...subnets.map(s => s.value), unallocated].filter(v => v > 0),
+                            backgroundColor: [
+                                '#4299E1', '#48BB78', '#F6AD55', '#F56565',
+                                '#9F7AEA', '#ED64A6', '#4FD1C5', '#667EEA',
+                                '#E5E7EB' // gray for unallocated
+                            ]
+                        }]
+                    };
+
+                    this.categoryCharts[name] = new Chart(ctx, {
+                        type: 'pie',
+                        data: chartData,
+                        options: {
+                            responsive: false,
+                            animation: false,
+                            plugins: {
+                                legend: {
+                                    display: false
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const value = context.raw;
+                                            return context.label === 'Unallocated' ? 
+                                                `Unallocated: ${value}%` : 
+                                                `${context.label}: ${value}%`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                },
+                updateAllCharts() {
+                    this.updateChart();
+                    for (const [name, category] of Object.entries(this.config.allocation)) {
+                        this.updateCategoryChart(name, category);
+                    }
+                },
+                addCategory() {
+                    const name = prompt('Enter category name:');
+                    if (name && !this.config.allocation[name]) {
+                        this.config.allocation[name] = {
+                            description: '',
+                            total_percentage: 0,
+                            subnets: {}
+                        };
+                        this.updateAllCharts();
+                    }
+                },
+                removeCategory(name) {
+                    if (confirm(`Remove category "${name}"?`)) {
+                        // Destroy the chart before removing the category
+                        if (this.categoryCharts[name]) {
+                            this.categoryCharts[name].destroy();
+                            delete this.categoryCharts[name];
+                        }
+                        delete this.config.allocation[name];
+                        this.updateAllCharts();
+                    }
+                },
+                addSubnet(category) {
+                    const subnet = prompt('Enter subnet ID:');
+                    if (subnet) {
+                        category.subnets[subnet] = 0;
+                        this.updateAllCharts();
+                    }
+                },
+                removeSubnet(category, subnet) {
+                    delete category.subnets[subnet];
+                    this.updateAllCharts();
+                },
+                updateChart() {
+                    if (this.chart) {
+                        this.chart.destroy();
+                    }
+
+                    const ctx = document.getElementById('allocationChart');
+                    const data = {
+                        labels: Object.keys(this.config.allocation),
+                        datasets: [{
+                            data: Object.values(this.config.allocation).map(c => c.total_percentage),
+                            backgroundColor: [
+                                '#4299E1', '#48BB78', '#F6AD55', '#F56565',
+                                '#9F7AEA', '#ED64A6', '#4FD1C5', '#667EEA'
+                            ]
+                        }]
+                    };
+
+                    this.chart = new Chart(ctx, {
+                        type: 'pie',
+                        data: data,
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                }
+                            }
+                        }
+                    });
+                },
+                onCategoryTotalChange(category) {
+                    this.updateAllCharts();
+                },
+                equalizeSubnets(category) {
+                    const subnetCount = Object.keys(category.subnets).length;
+                    if (subnetCount === 0) return;
+                    
+                    // Calculate equal percentage to make subnets total 100%
+                    const equalPercentage = Math.floor(100 / subnetCount);
+                    const remainder = 100 - (equalPercentage * subnetCount);
+                    
+                    // Distribute the base percentage to all subnets
+                    Object.keys(category.subnets).forEach((subnet, index) => {
+                        // Add the remainder to the first subnet to ensure total is exactly 100%
+                        category.subnets[subnet] = equalPercentage + (index === 0 ? remainder : 0);
+                    });
+                    
+                    this.updateAllCharts();
+                },
+                getStakingFrequency() {
+                    const interval = this.config.staking.interval;
+                    if (!interval || interval <= 0) return 0;
+                    return (24 * 3600 / interval).toFixed(1);
+                }
+            },
+            watch: {
+                'config.allocation': {
+                    deep: true,
+                    handler() {
+                        this.updateAllCharts();
+                    }
+                }
+            },
+            mounted() {
+                this.updateAllCharts();
+                this.validateConfig();
+            },
+            beforeUnmount() {
+                if (this.chart) {
+                    this.chart.destroy();
+                }
+                Object.values(this.categoryCharts).forEach(chart => chart.destroy());
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html> 

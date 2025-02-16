@@ -1,0 +1,58 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+
+# Configuration
+config.yaml
+*.yaml.bak
+*.yaml.old
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+pm2.log
+pm2/
+
+# Node/PM2
+node_modules/
+.pm2/
+
+# Local development
+.DS_Store
+Thumbs.db
+
+# Bittensor specific
+wallets/
+coldkeys/
+hotkeys/
