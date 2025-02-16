@@ -44,6 +44,15 @@ pm2 logs alpha-dca  # Monitor logs
 pm2 stop alpha-dca  # Stop the process
 ```
 
+After making changes to `config.yaml`, restart the DCA script:
+```bash
+# If running directly:
+Ctrl+C and run python3 alpha_DCA.py again
+
+# If running with PM2:
+pm2 restart alpha-dca
+```
+
 ## 📈 Allocation Strategy
 
 You can create multiple allocation categories (e.g., "Established", "New-comers", "Shit-coiners") and assign different percentages of your total DCA amount to each. Within each category, distribute the stake across multiple subnets:
