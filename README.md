@@ -37,21 +37,32 @@ nano config.yaml  # or vim config.yaml
 python3 alpha_DCA.py
 ```
 
-To run in background with PM2:
+## 🔄 Running in Background
+
+Whether you're using the web UI or CLI setup, you'll want to run the DCA script (`alpha_DCA.py`) in a persistent session. We recommend using tmux:
+
 ```bash
-pm2 start alpha_DCA.py --name "alpha-dca" --interpreter $(which python3)
-pm2 logs alpha-dca  # Monitor logs
-pm2 stop alpha-dca  # Stop the process
+# Start a new tmux session named "alpha-dca"
+tmux new -s alpha-dca
+
+# Inside tmux, activate your virtual environment and run the script
+source venv/bin/activate
+python3 alpha_DCA.py
+
+# Detach from tmux session (but leave it running) by pressing:
+# Ctrl+B, then D
+
+# Later, to reattach to the session:
+tmux attach -t alpha-dca
+
+# To list all running sessions:
+tmux ls
+
+# To kill the session:
+tmux kill-session -t alpha-dca
 ```
 
-After making changes to `config.yaml`, restart the DCA script:
-```bash
-# If running directly:
-Ctrl+C and run python3 alpha_DCA.py again
-
-# If running with PM2:
-pm2 restart alpha-dca
-```
+After making changes to `config.yaml`, you'll need to stop the current process (Ctrl+C) and restart the script.
 
 ## 📈 Allocation Strategy
 
